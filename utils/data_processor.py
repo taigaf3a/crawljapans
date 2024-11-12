@@ -1,4 +1,3 @@
-# Keep the same content but update the load_data docstring
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -11,34 +10,38 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 
 class DataProcessor:
     def parse_log_line(_self, line):
-        # Apache combined log format pattern with Googlebot filtering
-        pattern = r'(?P<ip>[\d.]+)\s+[-\w]+\s+[-\w]+\s+\[(?P<datetime>[^\]]+)\]\s+"(?P<method>\w+)\s+(?P<url>[^\s"]+)[^"]*"\s+(?P<status>\d+)\s+(?P<bytes>[-\d]+)\s+"[^"]*"\s+"(?P<useragent>[^"]*)"'
-        
+        patterns = [
+            # Standard Apache/Nginx combined log format
+            r'(?P<ip>[\d.]+)\s+[-\w]+\s+[-\w]+\s+\[(?P<datetime>[^\]]+)\]\s+"(?P<method>\w+)\s+(?P<url>[^\s"]+)[^"]*"\s+(?P<status>\d+)\s+(?P<bytes>[-\d]+)\s+"([^"]*)"\s+"(?P<useragent>[^"]*)"',
+            # Alternative format without ident and authuser
+            r'(?P<ip>[\d.]+)\s+\[(?P<datetime>[^\]]+)\]\s+"(?P<method>\w+)\s+(?P<url>[^\s"]+)[^"]*"\s+(?P<status>\d+)\s+(?P<bytes>[-\d]+)\s+"([^"]*)"\s+"(?P<useragent>[^"]*)"',
+            # Simplified format
+            r'\[(?P<datetime>[^\]]+)\]\s+"(?P<method>\w+)\s+(?P<url>[^\s"]+)[^"]*"\s+(?P<status>\d+)\s+(?P<bytes>[-\d]+)[^"]*"(?P<useragent>[^"]*)"'
+        ]
+
         try:
-            match = re.match(pattern, line)
-            if match:
-                data = match.groupdict()
-                
-                # Check if the user agent contains Googlebot (case insensitive)
-                if not re.search(r'googlebot', data['useragent'], re.IGNORECASE):
-                    return None
-                    
-                # Parse datetime
-                try:
-                    dt = datetime.strptime(data['datetime'], '%d/%b/%Y:%H:%M:%S %z')
-                except ValueError:
-                    try:
-                        dt = datetime.strptime(data['datetime'], '%d/%b/%Y:%H:%M:%S')
-                    except ValueError:
-                        return None
-                
-                return {
-                    'url': data['url'],
-                    'date': dt.date(),
-                    'time': dt.strftime('%H:%M:%S'),
-                    'status': data['status'],
-                    'user_agent': data['useragent']
-                }
+            # Try each pattern
+            for pattern in patterns:
+                match = re.match(pattern, line)
+                if match:
+                    data = match.groupdict()
+                    if re.search(r'googlebot', data['useragent'], re.IGNORECASE):
+                        # Parse datetime
+                        try:
+                            dt = datetime.strptime(data['datetime'], '%d/%b/%Y:%H:%M:%S %z')
+                        except ValueError:
+                            try:
+                                dt = datetime.strptime(data['datetime'], '%d/%b/%Y:%H:%M:%S')
+                            except ValueError:
+                                return None
+
+                        return {
+                            'url': data['url'],
+                            'date': dt.date(),
+                            'time': dt.strftime('%H:%M:%S'),
+                            'status': data['status'],
+                            'user_agent': data['useragent']
+                        }
         except Exception:
             return None
         return None
@@ -77,6 +80,9 @@ class DataProcessor:
             if total_lines == 0:
                 raise ValueError(f"File {file.name} appears to be empty")
             
+            # Add debug logging
+            st.write("Debug: Sample of first line:", lines[0] if lines else "No lines found")
+            
             parsed_data = []
             invalid_lines = 0
             googlebot_entries = 0
@@ -89,8 +95,13 @@ class DataProcessor:
                 else:
                     invalid_lines += 1
             
-            if not parsed_data:
-                raise ValueError(f"No Googlebot entries found in {file.name}. Total lines: {total_lines}, Invalid lines: {invalid_lines}")
+            if not parsed_data and total_lines > 0:
+                sample_lines = lines[:5]  # First 5 lines
+                error_msg = f"No Googlebot entries found in {file.name}. \n"
+                error_msg += f"Total lines: {total_lines}, Invalid lines: {invalid_lines}\n"
+                error_msg += "Sample of first few lines:\n"
+                error_msg += "\n".join(sample_lines)
+                raise ValueError(error_msg)
             
             st.info(f"Processed {total_lines} lines, found {googlebot_entries} Googlebot entries")
             df = pd.DataFrame(parsed_data)
