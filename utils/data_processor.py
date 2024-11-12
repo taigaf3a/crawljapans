@@ -60,7 +60,10 @@ class DataProcessor:
             
             # Handle log files
             if file.name.startswith('ssl_access.log-'):
+                # Reset file position to start
+                file.seek(0)
                 content = file.read()
+                
                 if file.name.endswith('.gz'):
                     try:
                         content = gzip.decompress(content)
@@ -68,30 +71,37 @@ class DataProcessor:
                         raise ValueError(f"Failed to decompress {file.name}: {str(e)}")
                 
                 try:
-                    content = content.decode('utf-8')
+                    # Convert bytes to string
+                    if isinstance(content, bytes):
+                        content = content.decode('utf-8')
                 except UnicodeDecodeError:
                     # Try alternative encodings
                     for encoding in ['latin-1', 'iso-8859-1', 'cp1252']:
                         try:
-                            content = content.decode(encoding)
+                            if isinstance(content, bytes):
+                                content = content.decode(encoding)
                             break
                         except UnicodeDecodeError:
                             continue
-                    if not isinstance(content, str):
+                    if isinstance(content, bytes):
                         raise ValueError(f"Failed to decode {file.name} with supported encodings")
+                
+                # Split content into lines and filter out empty lines
+                lines = [line.strip() for line in content.split('\n') if line.strip()]
+                total_lines = len(lines)
+                
+                if total_lines == 0:
+                    raise ValueError(f"File {file.name} appears to be empty")
                 
                 parsed_data = []
                 invalid_lines = 0
-                total_lines = 0
                 
-                for line in content.split('\n'):
-                    if line.strip():
-                        total_lines += 1
-                        data = _self.parse_log_line(line)
-                        if data:
-                            parsed_data.append(data)
-                        else:
-                            invalid_lines += 1
+                for line in lines:
+                    data = _self.parse_log_line(line)
+                    if data:
+                        parsed_data.append(data)
+                    else:
+                        invalid_lines += 1
                 
                 if not parsed_data:
                     raise ValueError(f"No valid log entries found in {file.name}. Total lines: {total_lines}, Invalid lines: {invalid_lines}")
