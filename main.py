@@ -23,14 +23,45 @@ def main():
     """)
 
     # File upload section
-    uploaded_file = st.file_uploader("Upload Crawler Data (CSV or GZ)", type=['csv', 'gz'])
+    uploaded_files = st.file_uploader(
+        "Upload Crawler Data Files (CSV or GZ)",
+        type=['csv', 'gz'],
+        accept_multiple_files=True
+    )
     
-    if uploaded_file:
+    if uploaded_files:
         try:
-            # Read and process data
+            # Initialize progress bar
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            # Initialize empty DataFrame
+            combined_df = pd.DataFrame()
             data_processor = DataProcessor()
-            df = data_processor.load_data(uploaded_file)
-            st.session_state.data = df
+            
+            # Process each uploaded file
+            for idx, uploaded_file in enumerate(uploaded_files):
+                status_text.text(f"Processing file {idx + 1}/{len(uploaded_files)}: {uploaded_file.name}")
+                
+                # Read and process data
+                df = data_processor.load_data(uploaded_file)
+                # Concatenate with existing data
+                combined_df = pd.concat([combined_df, df], ignore_index=True)
+                
+                # Update progress
+                progress = (idx + 1) / len(uploaded_files)
+                progress_bar.progress(progress)
+            
+            # Sort by date for consistency
+            combined_df = combined_df.sort_values('date')
+            st.session_state.data = combined_df
+            
+            # Clear progress indicators
+            progress_bar.empty()
+            status_text.empty()
+            
+            # Success message
+            st.success(f"Successfully processed {len(uploaded_files)} file(s)")
             
             # Export section
             st.sidebar.header("📥 Export Data")
@@ -41,10 +72,10 @@ def main():
             
             # Export buttons for different data views
             export_options = {
-                "Raw Data": df,
-                "Daily Crawl Frequency": data_processor.calculate_crawl_frequency(df),
-                "Monthly Statistics": data_processor.calculate_monthly_stats(df),
-                "URL Patterns": data_processor.get_url_patterns(df)
+                "Raw Data": combined_df,
+                "Daily Crawl Frequency": data_processor.calculate_crawl_frequency(combined_df),
+                "Monthly Statistics": data_processor.calculate_monthly_stats(combined_df),
+                "URL Patterns": data_processor.get_url_patterns(combined_df)
             }
             
             export_dataset = st.sidebar.selectbox(
@@ -84,11 +115,11 @@ def main():
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                st.metric("Total URLs", len(df['url'].unique()))
+                st.metric("Total URLs", len(combined_df['url'].unique()))
             with col2:
-                st.metric("Total Crawls", len(df))
+                st.metric("Total Crawls", len(combined_df))
             with col3:
-                st.metric("Date Range", f"{df['date'].min().date()} to {df['date'].max().date()}")
+                st.metric("Date Range", f"{combined_df['date'].min().date()} to {combined_df['date'].max().date()}")
 
             # Create tabs for different views
             tab1, tab2, tab3, tab4 = st.tabs(["📈 Crawl Analysis", "📊 Statistical Insights", "🗺️ Heat Maps", "📑 Detailed Data"])
@@ -97,16 +128,16 @@ def main():
             
             with tab1:
                 st.subheader("Daily Crawl Frequency")
-                daily_crawls = visualizer.plot_daily_crawls(df)
+                daily_crawls = visualizer.plot_daily_crawls(combined_df)
                 st.plotly_chart(daily_crawls, use_container_width=True)
                 
                 st.subheader("Monthly Crawl Distribution")
-                monthly_crawls = visualizer.plot_monthly_crawls(df)
+                monthly_crawls = visualizer.plot_monthly_crawls(combined_df)
                 st.plotly_chart(monthly_crawls, use_container_width=True)
 
             with tab2:
                 st.subheader("Advanced Statistical Analysis")
-                stats_results = data_processor.perform_statistical_analysis(df)
+                stats_results = data_processor.perform_statistical_analysis(combined_df)
                 
                 # Basic Statistics
                 st.write("### Daily Crawl Statistics")
@@ -143,13 +174,13 @@ def main():
 
             with tab3:
                 st.subheader("Crawl Frequency Heat Map")
-                heatmap = visualizer.create_heatmap(df)
+                heatmap = visualizer.create_heatmap(combined_df)
                 st.plotly_chart(heatmap, use_container_width=True)
 
             with tab4:
                 st.subheader("Detailed Crawl Data")
                 # Configure AG-Grid
-                gb = GridOptionsBuilder.from_dataframe(df)
+                gb = GridOptionsBuilder.from_dataframe(combined_df)
                 gb.configure_pagination(paginationAutoPageSize=True)
                 gb.configure_column("url", filter=True)
                 gb.configure_column("date", filter=True)
@@ -157,7 +188,7 @@ def main():
                 
                 grid_options = gb.build()
                 AgGrid(
-                    df,
+                    combined_df,
                     gridOptions=grid_options,
                     enable_enterprise_modules=True,
                     allow_unsafe_jscode=True,
@@ -165,7 +196,7 @@ def main():
                 )
 
         except Exception as e:
-            st.error(f"Error processing file: {str(e)}")
+            st.error(f"Error processing file(s): {str(e)}")
 
 if __name__ == "__main__":
     main()

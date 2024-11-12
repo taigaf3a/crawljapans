@@ -23,7 +23,7 @@ class DataProcessor:
             # Ensure required columns exist
             required_columns = ['url', 'date', 'time']
             if not all(col in df.columns for col in required_columns):
-                raise ValueError("File must contain 'url', 'date', and 'time' columns")
+                raise ValueError(f"File {file.name} must contain 'url', 'date', and 'time' columns")
             
             # Convert date column to datetime
             df['date'] = pd.to_datetime(df['date'])
@@ -33,7 +33,7 @@ class DataProcessor:
             
             return df
         except Exception as e:
-            raise ValueError(f"Error processing file: {str(e)}")
+            raise ValueError(f"Error processing file {file.name}: {str(e)}")
 
     @st.cache_data
     def calculate_crawl_frequency(self, df):
@@ -78,10 +78,15 @@ class DataProcessor:
 
         # Time series decomposition
         if len(daily_series) >= 14:  # Minimum length for decomposition
-            decomposition = seasonal_decompose(daily_series, period=7, extrapolate_trend='freq')
-            trend = decomposition.trend
-            seasonal = decomposition.seasonal
-            residual = decomposition.resid
+            try:
+                # Convert to regular time series with missing values filled
+                daily_series = daily_series.asfreq('D', fill_value=0)
+                decomposition = seasonal_decompose(daily_series, period=7)
+                trend = decomposition.trend
+                seasonal = decomposition.seasonal
+                residual = decomposition.resid
+            except Exception:
+                trend = seasonal = residual = pd.Series()
         else:
             trend = seasonal = residual = pd.Series()
 
