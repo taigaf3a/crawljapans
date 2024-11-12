@@ -54,14 +54,18 @@ class Visualizer:
 
     @st.cache_data
     def plot_monthly_crawls(_self, df):
-        """Create monthly crawl distribution plot."""
-        monthly_crawls = df.groupby('month')['url'].count().astype('float64').reset_index()
+        monthly_crawls = (
+            df.groupby('month')['url']
+            .agg('count')
+            .astype('float64')
+            .reset_index(name='count')
+        )
         fig = px.bar(
             monthly_crawls,
             x='month',
-            y='url',
+            y='count',
             title='Monthly Crawl Distribution',
-            labels={'url': 'Number of Crawls', 'month': 'Month'}
+            labels={'count': 'Number of Crawls', 'month': 'Month'}
         )
         fig.update_layout(
             xaxis_tickangle=-45,
@@ -71,13 +75,15 @@ class Visualizer:
 
     @st.cache_data
     def create_heatmap(_self, df):
-        heatmap_data = df.pivot_table(
+        # Convert counts to float64 before pivot
+        counts = df.groupby(['day_of_week', 'hour']).size().astype('float64')
+        
+        # Create pivot table with float64 values
+        heatmap_data = counts.reset_index().pivot(
             index='day_of_week',
             columns='hour',
-            values='url',
-            aggfunc='count',
-            fill_value=0.0  # Use float
-        ).astype('float64')  # Ensure float64 type
+            values=0
+        ).fillna(0.0)
         
         day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         heatmap_data = heatmap_data.reindex(day_order)
@@ -100,7 +106,6 @@ class Visualizer:
 
     @st.cache_data
     def plot_time_series_decomposition(_self, trend, seasonal, residual):
-        """Plot time series decomposition components."""
         fig = go.Figure()
         
         if not trend.empty:
@@ -137,9 +142,8 @@ class Visualizer:
 
     @st.cache_data
     def plot_url_distribution(_self, url_counts):
-        """Plot URL crawl frequency distribution."""
-        df = pd.DataFrame(list(url_counts.items()), columns=['URL', 'Count'])
-        df['Count'] = df['Count'].astype('float64')  # Ensure float64 type
+        df = pd.DataFrame(url_counts.items(), columns=['URL', 'Count'])
+        df['Count'] = df['Count'].astype('float64')
         df = df.sort_values('Count', ascending=True).tail(10)
         
         fig = px.bar(
@@ -159,20 +163,19 @@ class Visualizer:
 
     @st.cache_data
     def plot_period_comparison(_self, period1_data, period2_data, metric, title):
-        """Create comparative bar chart for two time periods."""
         fig = go.Figure()
         
         fig.add_trace(go.Bar(
             name='Period 1',
             x=['Period 1'],
-            y=[float(period1_data)],  # Convert to float64
+            y=[float(period1_data)],
             marker_color='rgb(55, 83, 109)'
         ))
         
         fig.add_trace(go.Bar(
             name='Period 2',
             x=['Period 2'],
-            y=[float(period2_data)],  # Convert to float64
+            y=[float(period2_data)],
             marker_color='rgb(26, 118, 255)'
         ))
 
@@ -219,14 +222,12 @@ class Visualizer:
 
     @st.cache_data
     def get_preset_charts(_self, preset_name):
-        """Get the list of charts for a given preset."""
         if preset_name in _self.presets:
             return _self.presets[preset_name].charts
         return []
 
     @st.cache_data
     def get_preset_description(_self, preset_name):
-        """Get the description for a given preset."""
         if preset_name in _self.presets:
             return _self.presets[preset_name].description
         return ""
