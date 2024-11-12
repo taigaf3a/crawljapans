@@ -81,7 +81,6 @@ class Visualizer:
             fill_value=0
         )
         
-        # Reorder days of week
         day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         heatmap_data = heatmap_data.reindex(day_order)
 
@@ -216,12 +215,14 @@ class Visualizer:
         )
         return fig
 
+    @st.cache_data
     def get_preset_charts(self, preset_name):
         """Get the list of charts for a given preset."""
         if preset_name in self.presets:
             return self.presets[preset_name].charts
         return []
 
+    @st.cache_data
     def get_preset_description(self, preset_name):
         """Get the description for a given preset."""
         if preset_name in self.presets:
