@@ -4,7 +4,37 @@ import pandas as pd
 import streamlit as st
 import numpy as np
 
+class VisualizationPreset:
+    def __init__(self, name, description, charts):
+        self.name = name
+        self.description = description
+        self.charts = charts
+
 class Visualizer:
+    def __init__(self):
+        self.presets = {
+            'overview': VisualizationPreset(
+                'Overview',
+                'General crawling behavior overview',
+                ['daily_crawls', 'monthly_crawls', 'heatmap']
+            ),
+            'temporal': VisualizationPreset(
+                'Temporal Analysis',
+                'Detailed time-based analysis',
+                ['daily_crawls', 'time_series_decomposition', 'hourly_comparison']
+            ),
+            'url_focused': VisualizationPreset(
+                'URL Analysis',
+                'URL crawling patterns and distribution',
+                ['url_distribution', 'monthly_crawls']
+            ),
+            'comparison': VisualizationPreset(
+                'Comparative Analysis',
+                'Compare different time periods',
+                ['period_comparison', 'hourly_comparison']
+            )
+        }
+
     @st.cache_data
     def plot_daily_crawls(self, df):
         """Create daily crawl frequency plot."""
@@ -163,7 +193,6 @@ class Visualizer:
         
         fig = go.Figure()
         
-        # Add traces for both periods
         fig.add_trace(go.Scatter(
             x=hours,
             y=[period1_dist.get(hour, 0) for hour in hours],
@@ -186,3 +215,15 @@ class Visualizer:
             plot_bgcolor='white'
         )
         return fig
+
+    def get_preset_charts(self, preset_name):
+        """Get the list of charts for a given preset."""
+        if preset_name in self.presets:
+            return self.presets[preset_name].charts
+        return []
+
+    def get_preset_description(self, preset_name):
+        """Get the description for a given preset."""
+        if preset_name in self.presets:
+            return self.presets[preset_name].description
+        return ""

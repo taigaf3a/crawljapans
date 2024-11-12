@@ -1,4 +1,4 @@
-# Keeping the same content but updating the file uploader section
+# Keeping the same imports and initial setup
 import streamlit as st
 import pandas as pd
 from st_aggrid import AgGrid, GridOptionsBuilder
@@ -124,12 +124,13 @@ def main():
                 st.metric("Date Range", f"{combined_df['date'].min().date()} to {combined_df['date'].max().date()}")
 
             # Create tabs for different views
-            tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
                 "📈 Crawl Analysis", 
                 "📊 Statistical Insights", 
                 "🗺️ Heat Maps", 
-                "🔄 Period Comparison", 
-                "📑 Detailed Data"
+                "🔄 Period Comparison",
+                "📑 Detailed Data",
+                "🎨 Visualization Presets"
             ])
             
             visualizer = Visualizer()
@@ -318,6 +319,58 @@ def main():
                     allow_unsafe_jscode=True,
                     theme='streamlit'
                 )
+
+            with tab6:
+                st.subheader("📊 Visualization Presets")
+                st.markdown("""
+                Choose from predefined visualization combinations to quickly analyze specific aspects of your crawler data.
+                """)
+                
+                # Preset selection
+                preset_name = st.selectbox(
+                    "Select a Visualization Preset",
+                    options=list(visualizer.presets.keys()),
+                    format_func=lambda x: visualizer.presets[x].name
+                )
+                
+                # Display preset description
+                st.info(visualizer.get_preset_description(preset_name))
+                
+                # Get charts for the selected preset
+                charts = visualizer.get_preset_charts(preset_name)
+                
+                # Display charts based on the preset
+                for chart_type in charts:
+                    if chart_type == 'daily_crawls':
+                        st.subheader("Daily Crawl Frequency")
+                        fig = visualizer.plot_daily_crawls(combined_df)
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    elif chart_type == 'monthly_crawls':
+                        st.subheader("Monthly Crawl Distribution")
+                        fig = visualizer.plot_monthly_crawls(combined_df)
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    elif chart_type == 'heatmap':
+                        st.subheader("Crawl Frequency Heat Map")
+                        fig = visualizer.create_heatmap(combined_df)
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    elif chart_type == 'time_series_decomposition':
+                        st.subheader("Time Series Decomposition")
+                        stats_results = data_processor.perform_statistical_analysis(combined_df)
+                        fig = visualizer.plot_time_series_decomposition(
+                            stats_results['trend'],
+                            stats_results['seasonal'],
+                            stats_results['residual']
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    elif chart_type == 'url_distribution':
+                        st.subheader("URL Distribution")
+                        stats_results = data_processor.perform_statistical_analysis(combined_df)
+                        fig = visualizer.plot_url_distribution(stats_results['url_diversity']['top_urls'])
+                        st.plotly_chart(fig, use_container_width=True)
 
         except Exception as e:
             st.error(f"Error processing file(s): {str(e)}")

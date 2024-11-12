@@ -11,12 +11,12 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 class DataProcessor:
     def parse_log_line(_self, line):
         patterns = [
-            # Standard Apache/Nginx combined log format
-            r'(?P<ip>[\d.]+)\s+[-\w]+\s+[-\w]+\s+\[(?P<datetime>[^\]]+)\]\s+"(?P<method>\w+)\s+(?P<url>[^\s"]+)[^"]*"\s+(?P<status>\d+)\s+(?P<bytes>[-\d]+)\s+"([^"]*)"\s+"(?P<useragent>[^"]*)"',
-            # Alternative format without ident and authuser
-            r'(?P<ip>[\d.]+)\s+\[(?P<datetime>[^\]]+)\]\s+"(?P<method>\w+)\s+(?P<url>[^\s"]+)[^"]*"\s+(?P<status>\d+)\s+(?P<bytes>[-\d]+)\s+"([^"]*)"\s+"(?P<useragent>[^"]*)"',
-            # Simplified format
-            r'\[(?P<datetime>[^\]]+)\]\s+"(?P<method>\w+)\s+(?P<url>[^\s"]+)[^"]*"\s+(?P<status>\d+)\s+(?P<bytes>[-\d]+)[^"]*"(?P<useragent>[^"]*)"'
+            # Apache/Nginx format with domain prefix
+            r'(?:\S+\s+)?(?P<ip>[\d.]+)\s+[-\w]+\s+[-\w]+\s+\[(?P<datetime>[^\]]+)\]\s+"(?P<method>\w+)\s+(?P<url>[^\s"]+)[^"]*"\s+(?P<status>\d+)\s+(?P<bytes>[-\d]+)\s+"([^"]*)"\s+"(?P<useragent>[^"]*)"',
+            # Alternative format with domain prefix
+            r'(?:\S+\s+)?(?P<ip>[\d.]+)\s+\[(?P<datetime>[^\]]+)\]\s+"(?P<method>\w+)\s+(?P<url>[^\s"]+)[^"]*"\s+(?P<status>\d+)\s+(?P<bytes>[-\d]+)\s+"([^"]*)"\s+"(?P<useragent>[^"]*)"',
+            # Basic format with domain prefix
+            r'(?:\S+\s+)?(?P<ip>[\d.]+)\s+\S+\s+\S+\s+\[(?P<datetime>[^\]]+)\]\s+"[^"]+"\s+(?P<status>\d+)\s+(?P<bytes>[-\d]+)\s+"[^"]*"\s+"(?P<useragent>[^"]*)"'
         ]
 
         try:
