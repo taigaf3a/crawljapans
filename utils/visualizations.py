@@ -36,7 +36,7 @@ class Visualizer:
         }
 
     @st.cache_data
-    def plot_daily_crawls(self, df):
+    def plot_daily_crawls(_self, df):
         """Create daily crawl frequency plot."""
         daily_crawls = df.groupby('date')['url'].count().reset_index()
         fig = px.line(
@@ -54,7 +54,7 @@ class Visualizer:
         return fig
 
     @st.cache_data
-    def plot_monthly_crawls(self, df):
+    def plot_monthly_crawls(_self, df):
         """Create monthly crawl distribution plot."""
         monthly_crawls = df.groupby('month')['url'].count().reset_index()
         fig = px.bar(
@@ -71,7 +71,7 @@ class Visualizer:
         return fig
 
     @st.cache_data
-    def create_heatmap(self, df):
+    def create_heatmap(_self, df):
         """Create crawl frequency heatmap."""
         heatmap_data = df.pivot_table(
             index='day_of_week',
@@ -101,7 +101,7 @@ class Visualizer:
         return fig
 
     @st.cache_data
-    def plot_time_series_decomposition(self, trend, seasonal, residual):
+    def plot_time_series_decomposition(_self, trend, seasonal, residual):
         """Plot time series decomposition components."""
         fig = go.Figure()
         
@@ -138,7 +138,7 @@ class Visualizer:
         return fig
 
     @st.cache_data
-    def plot_url_distribution(self, url_counts):
+    def plot_url_distribution(_self, url_counts):
         """Plot URL crawl frequency distribution."""
         df = pd.DataFrame(list(url_counts.items()), columns=['URL', 'Count'])
         df = df.sort_values('Count', ascending=True).tail(10)
@@ -159,7 +159,7 @@ class Visualizer:
         return fig
 
     @st.cache_data
-    def plot_period_comparison(self, period1_data, period2_data, metric, title):
+    def plot_period_comparison(_self, period1_data, period2_data, metric, title):
         """Create comparative bar chart for two time periods."""
         fig = go.Figure()
         
@@ -186,7 +186,7 @@ class Visualizer:
         return fig
 
     @st.cache_data
-    def plot_hourly_comparison(self, period1_dist, period2_dist):
+    def plot_hourly_comparison(_self, period1_dist, period2_dist):
         """Create comparative line chart for hourly distributions."""
         hours = list(range(24))
         
@@ -216,15 +216,15 @@ class Visualizer:
         return fig
 
     @st.cache_data
-    def get_preset_charts(self, preset_name):
+    def get_preset_charts(_self, preset_name):
         """Get the list of charts for a given preset."""
-        if preset_name in self.presets:
-            return self.presets[preset_name].charts
+        if preset_name in _self.presets:
+            return _self.presets[preset_name].charts
         return []
 
     @st.cache_data
-    def get_preset_description(self, preset_name):
+    def get_preset_description(_self, preset_name):
         """Get the description for a given preset."""
-        if preset_name in self.presets:
-            return self.presets[preset_name].description
+        if preset_name in _self.presets:
+            return _self.presets[preset_name].description
         return ""
