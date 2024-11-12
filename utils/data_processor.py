@@ -9,124 +9,84 @@ from scipy import stats
 from statsmodels.tsa.seasonal import seasonal_decompose
 
 class DataProcessor:
-    def parse_log_line(self, line):
-        """Parse a single line from various log formats."""
-        # Common patterns for different log formats
-        patterns = [
-            # Standard Apache/Nginx log format
-            r'(?P<host>[\d\.]+)\s+\S+\s+\S+\s+\[(?P<datetime>[^\]]+)\]\s+"(?:GET|POST|PUT|DELETE)\s+(?P<url>[^\s"]+)[^"]*"\s+(?P<status>\d+)\s+(?P<bytes>\d+)',
-            # Alternative format (without auth fields)
-            r'(?P<host>[\d\.]+)\s+\[(?P<datetime>[^\]]+)\]\s+"(?:GET|POST|PUT|DELETE)\s+(?P<url>[^\s"]+)[^"]*"\s+(?P<status>\d+)\s+(?P<bytes>\d+)',
-            # Simple format
-            r'\[(?P<datetime>[^\]]+)\]\s+"(?:GET|POST|PUT|DELETE)\s+(?P<url>[^\s"]+)'
-        ]
+    def parse_log_line(_self, line):
+        # Apache combined log format pattern with Googlebot filtering
+        pattern = r'(?P<ip>[\d.]+)\s+[-\w]+\s+[-\w]+\s+\[(?P<datetime>[^\]]+)\]\s+"(?P<method>\w+)\s+(?P<url>[^\s"]+)[^"]*"\s+(?P<status>\d+)\s+(?P<bytes>[-\d]+)\s+"[^"]*"\s+"(?P<useragent>[^"]*)"'
         
-        for pattern in patterns:
-            try:
-                match = re.match(pattern, line)
-                if match:
-                    data = match.groupdict()
-                    # Try multiple datetime formats
-                    dt_formats = [
-                        '%d/%b/%Y:%H:%M:%S %z',
-                        '%Y-%m-%d %H:%M:%S',
-                        '%d/%b/%Y:%H:%M:%S'
-                    ]
-                    
-                    dt = None
-                    for dt_format in dt_formats:
-                        try:
-                            dt = datetime.strptime(data['datetime'], dt_format)
-                            break
-                        except ValueError:
-                            continue
-                    
-                    if dt:
-                        return {
-                            'url': data['url'],
-                            'date': dt.date(),
-                            'time': dt.strftime('%H:%M:%S')
-                        }
-            except Exception:
-                continue
+        try:
+            match = re.match(pattern, line)
+            if match:
+                data = match.groupdict()
                 
+                # Check if the user agent contains Googlebot (case insensitive)
+                if not re.search(r'googlebot', data['useragent'], re.IGNORECASE):
+                    return None
+                    
+                # Parse datetime
+                try:
+                    dt = datetime.strptime(data['datetime'], '%d/%b/%Y:%H:%M:%S %z')
+                except ValueError:
+                    try:
+                        dt = datetime.strptime(data['datetime'], '%d/%b/%Y:%H:%M:%S')
+                    except ValueError:
+                        return None
+                
+                return {
+                    'url': data['url'],
+                    'date': dt.date(),
+                    'time': dt.strftime('%H:%M:%S'),
+                    'status': data['status'],
+                    'user_agent': data['useragent']
+                }
+        except Exception:
+            return None
         return None
 
     @st.cache_data
     def load_data(_self, file):
         """Load and process crawler data from CSV, GZ, or log file."""
         try:
-            df = None
+            # Reset file position
+            file.seek(0)
+            content = file.read()
             
-            # Handle log files
-            if file.name.startswith('ssl_access.log-'):
-                # Reset file position to start
-                file.seek(0)
-                content = file.read()
-                
-                if file.name.endswith('.gz'):
-                    try:
-                        content = gzip.decompress(content)
-                    except Exception as e:
-                        raise ValueError(f"Failed to decompress {file.name}: {str(e)}")
-                
-                try:
-                    # Convert bytes to string
-                    if isinstance(content, bytes):
-                        content = content.decode('utf-8')
-                except UnicodeDecodeError:
-                    # Try alternative encodings
-                    for encoding in ['latin-1', 'iso-8859-1', 'cp1252']:
-                        try:
-                            if isinstance(content, bytes):
-                                content = content.decode(encoding)
-                            break
-                        except UnicodeDecodeError:
-                            continue
-                    if isinstance(content, bytes):
-                        raise ValueError(f"Failed to decode {file.name} with supported encodings")
-                
-                # Split content into lines and filter out empty lines
-                lines = [line.strip() for line in content.split('\n') if line.strip()]
-                total_lines = len(lines)
-                
-                if total_lines == 0:
-                    raise ValueError(f"File {file.name} appears to be empty")
-                
-                parsed_data = []
-                invalid_lines = 0
-                
-                for line in lines:
-                    data = _self.parse_log_line(line)
-                    if data:
-                        parsed_data.append(data)
-                    else:
-                        invalid_lines += 1
-                
-                if not parsed_data:
-                    raise ValueError(f"No valid log entries found in {file.name}. Total lines: {total_lines}, Invalid lines: {invalid_lines}")
-                
-                df = pd.DataFrame(parsed_data)
-                
-            # Handle CSV and GZ files
-            elif file.name.endswith('.gz'):
-                content = gzip.decompress(file.read())
-                df = pd.read_csv(io.BytesIO(content))
-            else:
-                df = pd.read_csv(file)
+            # Handle text content
+            if isinstance(content, bytes):
+                content = content.decode('utf-8', errors='replace')
             
-            # Ensure required columns exist
-            required_columns = ['url', 'date', 'time']
-            if not all(col in df.columns for col in required_columns):
-                raise ValueError(f"File {file.name} must contain 'url', 'date', and 'time' columns")
+            # Split into lines and process
+            lines = [line.strip() for line in content.split('\n') if line.strip()]
+            total_lines = len(lines)
             
-            # Convert date column to datetime
+            if total_lines == 0:
+                raise ValueError(f"File {file.name} appears to be empty")
+            
+            parsed_data = []
+            invalid_lines = 0
+            googlebot_entries = 0
+            
+            for line in lines:
+                data = _self.parse_log_line(line)
+                if data:
+                    parsed_data.append(data)
+                    googlebot_entries += 1
+                else:
+                    invalid_lines += 1
+            
+            if not parsed_data:
+                raise ValueError(f"No Googlebot entries found in {file.name}. Total lines: {total_lines}, Invalid lines: {invalid_lines}")
+            
+            st.info(f"Processed {total_lines} lines, found {googlebot_entries} Googlebot entries")
+            df = pd.DataFrame(parsed_data)
+            
+            # Convert date column to datetime and add derived columns
             df['date'] = pd.to_datetime(df['date'])
             df['month'] = df['date'].dt.strftime('%Y-%m')
             df['day_of_week'] = df['date'].dt.day_name()
             df['hour'] = pd.to_datetime(df['time']).dt.hour
             
             return df
+            
         except Exception as e:
             raise ValueError(f"Error processing file {file.name}: {str(e)}")
 
@@ -193,7 +153,7 @@ class DataProcessor:
         url_counts = df.groupby('url').size()
         url_diversity = {
             'unique_urls': len(url_counts),
-            'gini_coefficient': self._calculate_gini(url_counts.values),
+            'gini_coefficient': _self._calculate_gini(url_counts.values),
             'top_urls': url_counts.nlargest(5).to_dict()
         }
 
@@ -238,7 +198,7 @@ class DataProcessor:
 
     @st.cache_data
     def compare_time_periods(self, df, start_date1, end_date1, start_date2, end_date2):
-        """Compare crawler data between two time periods."""
+        """Compare Googlebot crawl data between two time periods."""
         period1 = df[(df['date'] >= start_date1) & (df['date'] <= end_date1)]
         period2 = df[(df['date'] >= start_date2) & (df['date'] <= end_date2)]
         
@@ -251,7 +211,9 @@ class DataProcessor:
                 'peak_hours': period1.groupby('hour').size().nlargest(3).index.tolist(),
                 'top_urls': period1['url'].value_counts().nlargest(5).to_dict(),
                 'hourly_distribution': period1.groupby('hour').size().to_dict(),
-                'daily_pattern': period1.groupby('day_of_week').size().to_dict()
+                'daily_pattern': period1.groupby('day_of_week').size().to_dict(),
+                'status_codes': period1['status'].value_counts().to_dict(),
+                'googlebot_variants': period1['user_agent'].value_counts().to_dict()
             },
             'period2': {
                 'total_crawls': len(period2),
@@ -260,7 +222,9 @@ class DataProcessor:
                 'peak_hours': period2.groupby('hour').size().nlargest(3).index.tolist(),
                 'top_urls': period2['url'].value_counts().nlargest(5).to_dict(),
                 'hourly_distribution': period2.groupby('hour').size().to_dict(),
-                'daily_pattern': period2.groupby('day_of_week').size().to_dict()
+                'daily_pattern': period2.groupby('day_of_week').size().to_dict(),
+                'status_codes': period2['status'].value_counts().to_dict(),
+                'googlebot_variants': period2['user_agent'].value_counts().to_dict()
             }
         }
         
