@@ -10,24 +10,47 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 
 class DataProcessor:
     def parse_log_line(self, line):
-        """Parse a single line from the common log format."""
-        try:
-            # Common Log Format pattern
-            pattern = r'(?P<host>[\d\.]+)\s+\S+\s+\S+\s+\[(?P<datetime>[^\]]+)\]\s+"(?:GET|POST|PUT|DELETE)\s+(?P<url>[^\s"]+)[^"]*"\s+(?P<status>\d+)\s+(?P<bytes>\d+)'
-            match = re.match(pattern, line)
-            
-            if match:
-                data = match.groupdict()
-                # Parse datetime
-                dt = datetime.strptime(data['datetime'], '%d/%b/%Y:%H:%M:%S %z')
-                return {
-                    'url': data['url'],
-                    'date': dt.date(),
-                    'time': dt.strftime('%H:%M:%S')
-                }
-            return None
-        except Exception:
-            return None
+        """Parse a single line from various log formats."""
+        # Common patterns for different log formats
+        patterns = [
+            # Standard Apache/Nginx log format
+            r'(?P<host>[\d\.]+)\s+\S+\s+\S+\s+\[(?P<datetime>[^\]]+)\]\s+"(?:GET|POST|PUT|DELETE)\s+(?P<url>[^\s"]+)[^"]*"\s+(?P<status>\d+)\s+(?P<bytes>\d+)',
+            # Alternative format (without auth fields)
+            r'(?P<host>[\d\.]+)\s+\[(?P<datetime>[^\]]+)\]\s+"(?:GET|POST|PUT|DELETE)\s+(?P<url>[^\s"]+)[^"]*"\s+(?P<status>\d+)\s+(?P<bytes>\d+)',
+            # Simple format
+            r'\[(?P<datetime>[^\]]+)\]\s+"(?:GET|POST|PUT|DELETE)\s+(?P<url>[^\s"]+)'
+        ]
+        
+        for pattern in patterns:
+            try:
+                match = re.match(pattern, line)
+                if match:
+                    data = match.groupdict()
+                    # Try multiple datetime formats
+                    dt_formats = [
+                        '%d/%b/%Y:%H:%M:%S %z',
+                        '%Y-%m-%d %H:%M:%S',
+                        '%d/%b/%Y:%H:%M:%S'
+                    ]
+                    
+                    dt = None
+                    for dt_format in dt_formats:
+                        try:
+                            dt = datetime.strptime(data['datetime'], dt_format)
+                            break
+                        except ValueError:
+                            continue
+                    
+                    if dt:
+                        return {
+                            'url': data['url'],
+                            'date': dt.date(),
+                            'time': dt.strftime('%H:%M:%S')
+                        }
+            except Exception:
+                continue
+                
+        return None
 
     @st.cache_data
     def load_data(_self, file):
@@ -39,18 +62,39 @@ class DataProcessor:
             if file.name.startswith('ssl_access.log-'):
                 content = file.read()
                 if file.name.endswith('.gz'):
-                    content = gzip.decompress(content)
-                content = content.decode('utf-8')
+                    try:
+                        content = gzip.decompress(content)
+                    except Exception as e:
+                        raise ValueError(f"Failed to decompress {file.name}: {str(e)}")
+                
+                try:
+                    content = content.decode('utf-8')
+                except UnicodeDecodeError:
+                    # Try alternative encodings
+                    for encoding in ['latin-1', 'iso-8859-1', 'cp1252']:
+                        try:
+                            content = content.decode(encoding)
+                            break
+                        except UnicodeDecodeError:
+                            continue
+                    if not isinstance(content, str):
+                        raise ValueError(f"Failed to decode {file.name} with supported encodings")
                 
                 parsed_data = []
+                invalid_lines = 0
+                total_lines = 0
+                
                 for line in content.split('\n'):
                     if line.strip():
+                        total_lines += 1
                         data = _self.parse_log_line(line)
                         if data:
                             parsed_data.append(data)
+                        else:
+                            invalid_lines += 1
                 
                 if not parsed_data:
-                    raise ValueError(f"No valid log entries found in {file.name}")
+                    raise ValueError(f"No valid log entries found in {file.name}. Total lines: {total_lines}, Invalid lines: {invalid_lines}")
                 
                 df = pd.DataFrame(parsed_data)
                 
