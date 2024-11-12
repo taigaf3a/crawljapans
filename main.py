@@ -1,3 +1,4 @@
+# Keeping the same content but updating the file uploader section
 import streamlit as st
 import pandas as pd
 from st_aggrid import AgGrid, GridOptionsBuilder
@@ -23,10 +24,10 @@ def main():
     Upload your crawler data to analyze patterns, frequencies, and visualize crawling behavior.
     """)
 
-    # File upload section
+    # Updated file upload section to include .txt files
     uploaded_files = st.file_uploader(
-        "Upload Crawler Data Files (CSV or GZ)",
-        type=['csv', 'gz'],
+        "Upload Log Files",
+        type=['txt', 'log', 'gz'],
         accept_multiple_files=True
     )
     

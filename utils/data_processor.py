@@ -1,3 +1,4 @@
+# Keep the same content but update the load_data docstring
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -44,7 +45,22 @@ class DataProcessor:
 
     @st.cache_data
     def load_data(_self, file):
-        """Load and process crawler data from CSV, GZ, or log file."""
+        """Load and process crawler data from access logs (.log, .txt, or .gz files).
+        
+        This function processes web server access logs to extract Googlebot crawl data.
+        Supports plain text logs (.log, .txt) and compressed logs (.gz).
+        
+        Args:
+            file: The uploaded file object containing the access log data.
+            
+        Returns:
+            pandas.DataFrame: Processed crawl data with the following columns:
+                - url: The crawled URL
+                - date: The date of the crawl
+                - time: The time of the crawl
+                - status: HTTP status code
+                - user_agent: Googlebot user agent string
+        """
         try:
             # Reset file position
             file.seek(0)
