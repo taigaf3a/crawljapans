@@ -167,16 +167,75 @@ def main():
                 )
                 st.plotly_chart(decomp_plot, use_container_width=True)
                 
-                # URL Distribution
+                # Enhanced URL Distribution Analysis
                 st.write("### URL Distribution Analysis")
-                url_div = stats_results['url_diversity']
-                cols = st.columns(2)
-                cols[0].metric("Unique URLs", url_div['unique_urls'])
-                cols[1].metric("Gini Coefficient", f"{url_div['gini_coefficient']:.3f}")
                 
-                url_dist_plot = visualizer.plot_url_distribution(url_div['top_urls'])
+                # Date range filter
+                col1, col2 = st.columns(2)
+                with col1:
+                    start_date = st.date_input(
+                        "Start Date",
+                        value=combined_df['date'].min().date(),
+                        min_value=combined_df['date'].min().date(),
+                        max_value=combined_df['date'].max().date()
+                    )
+                with col2:
+                    end_date = st.date_input(
+                        "End Date",
+                        value=combined_df['date'].max().date(),
+                        min_value=start_date,
+                        max_value=combined_df['date'].max().date()
+                    )
+
+                # Sorting and filtering options
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    sort_by = st.selectbox(
+                        "Sort URLs by",
+                        ["total_crawls", "months_active", "latest_crawl", "avg_daily_crawls", "success_rate"],
+                        index=0
+                    )
+                with col2:
+                    sort_order = st.radio("Sort Order", ["Descending", "Ascending"])
+                with col3:
+                    display_count = st.number_input("Number of URLs to display", min_value=5, max_value=50, value=10)
+
+                # Get URL patterns with filters
+                url_patterns = data_processor.get_url_patterns(
+                    combined_df,
+                    pd.Timestamp(start_date),
+                    pd.Timestamp(end_date),
+                    sort_by,
+                    sort_order == "Ascending"
+                )
+
+                # Display URL distribution chart
+                url_dist_plot = visualizer.plot_url_distribution(url_patterns, sort_by, display_count)
                 st.plotly_chart(url_dist_plot, use_container_width=True)
-                
+
+                # Display detailed URL data
+                st.write("### Detailed URL Analysis")
+                st.dataframe(
+                    url_patterns.style.format({
+                        'total_crawls': '{:,.0f}',
+                        'avg_daily_crawls': '{:.2f}',
+                        'success_rate': '{:.1f}%',
+                        'first_crawl': lambda x: x.strftime('%Y-%m-%d'),
+                        'latest_crawl': lambda x: x.strftime('%Y-%m-%d')
+                    }),
+                    height=400
+                )
+
+                # Download URL analysis data
+                if st.button("Download URL Analysis Data"):
+                    csv = url_patterns.to_csv(index=False)
+                    st.download_button(
+                        label="Download CSV",
+                        data=csv,
+                        file_name="url_analysis.csv",
+                        mime="text/csv"
+                    )
+
                 # Peak Hours
                 st.write("### Peak Crawling Hours")
                 st.write(f"Top 3 peak hours: {', '.join(map(str, stats_results['peak_hours']))}")

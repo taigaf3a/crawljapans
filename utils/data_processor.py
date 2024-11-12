@@ -129,13 +129,43 @@ class DataProcessor:
         return monthly_stats
 
     @st.cache_data
-    def get_url_patterns(_self, df):
-        """Analyze URL patterns and frequency."""
+    def get_url_patterns(_self, df, start_date=None, end_date=None, sort_by='total_crawls', ascending=False):
+        """
+        Analyze URL patterns and frequency with filtering and sorting options.
+        
+        Parameters:
+        - df: DataFrame containing the crawl data
+        - start_date: Optional start date for filtering
+        - end_date: Optional end date for filtering
+        - sort_by: Column to sort by ('total_crawls', 'months_active', 'latest_crawl')
+        - ascending: Sort order
+        """
+        # Apply date filtering if provided
+        if start_date is not None:
+            df = df[df['date'] >= start_date]
+        if end_date is not None:
+            df = df[df['date'] <= end_date]
+
+        # Group by URL and calculate metrics
         url_patterns = df.groupby('url').agg({
-            'date': 'count',
-            'month': 'nunique'
+            'date': ['count', 'min', 'max', 'nunique'],
+            'month': 'nunique',
+            'status': lambda x: (x == 200).mean() * 100  # Success rate in percentage
         }).reset_index()
-        url_patterns.columns = ['url', 'total_crawls', 'months_active']
+
+        # Rename columns
+        url_patterns.columns = [
+            'url', 'total_crawls', 'first_crawl', 'latest_crawl',
+            'unique_days', 'months_active', 'success_rate'
+        ]
+
+        # Add average daily crawls
+        url_patterns['avg_daily_crawls'] = url_patterns['total_crawls'] / url_patterns['unique_days']
+
+        # Sort based on specified column
+        if sort_by in url_patterns.columns:
+            url_patterns = url_patterns.sort_values(sort_by, ascending=ascending)
+
         return url_patterns
 
     @st.cache_data
@@ -250,3 +280,162 @@ class DataProcessor:
         }
         
         return metrics, period1, period2
+
+class Visualizer:
+    def visualize_url_distribution(_self, url_patterns):
+        """Visualize URL distribution."""
+        st.subheader("URL Distribution Analysis")
+        st.write("**Note:** Click on the column headers to sort the table.")
+        st.dataframe(url_patterns)
+        
+        # Create a chart showing top 10 URLs
+        top_urls = url_patterns.sort_values('total_crawls', ascending=False).head(10)
+        st.subheader("Top 10 URLs")
+        fig = px.bar(
+            top_urls,
+            x='url',
+            y='total_crawls',
+            title="Top 10 URLs by Crawl Count",
+            labels={"url": "URL", "total_crawls": "Total Crawls"}
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Create a chart showing URL success rate
+        st.subheader("URL Success Rate")
+        fig = px.histogram(
+            url_patterns,
+            x='success_rate',
+            title="Distribution of URL Success Rates",
+            labels={"success_rate": "Success Rate (%)"}
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Create a chart showing URL crawl frequency over time
+        st.subheader("URL Crawl Frequency over Time")
+        fig = px.line(
+            url_patterns,
+            x='latest_crawl',
+            y='total_crawls',
+            title="Crawl Frequency of URLs over Time",
+            labels={"latest_crawl": "Latest Crawl Date", "total_crawls": "Total Crawls"}
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+def main():
+    st.title("Googlebot Crawl Data Analysis")
+    st.sidebar.title("Data Options")
+    uploaded_file = st.sidebar.file_uploader("Upload a log file (.log, .txt, .gz)", type=['log', 'txt', 'gz'])
+
+    if uploaded_file is not None:
+        try:
+            if uploaded_file.name.endswith(".gz"):
+                file = gzip.open(uploaded_file, 'rt', encoding='utf-8')
+            else:
+                file = uploaded_file
+            
+            # Load data from the file
+            data_processor = DataProcessor()
+            df = data_processor.load_data(file)
+
+            # Display tabs for different analysis types
+            tab1, tab2, tab3 = st.tabs(['Statistical Insights', 'URL Distribution', 'Time Period Comparison'])
+
+            with tab1:
+                st.header("Statistical Insights")
+                
+                # Filter Data by Date
+                start_date = st.date_input("Start Date", value=df['date'].min().date())
+                end_date = st.date_input("End Date", value=df['date'].max().date())
+                
+                # Perform statistical analysis
+                filtered_df = df[(df['date'] >= start_date) & (df['date'] <= end_date)]
+                stats = data_processor.perform_statistical_analysis(filtered_df)
+                
+                # Display basic statistics
+                st.subheader("Basic Crawl Statistics")
+                st.write(f"**Mean Daily Crawls:** {stats['basic_stats']['mean_daily_crawls']:.2f}")
+                st.write(f"**Median Daily Crawls:** {stats['basic_stats']['median_daily_crawls']:.2f}")
+                st.write(f"**Standard Deviation:** {stats['basic_stats']['std_daily_crawls']:.2f}")
+                st.write(f"**Skewness:** {stats['basic_stats']['skewness']:.2f}")
+                st.write(f"**Kurtosis:** {stats['basic_stats']['kurtosis']:.2f}")
+                
+                # Display trend, seasonal, and residual
+                st.subheader("Time Series Decomposition")
+                st.line_chart(stats['trend'], use_container_width=True)
+                st.line_chart(stats['seasonal'], use_container_width=True)
+                st.line_chart(stats['residual'], use_container_width=True)
+                
+                # Display peak hours
+                st.subheader("Peak Crawl Hours")
+                st.write(f"Peak hours: {stats['peak_hours']}")
+                
+                # Display URL diversity
+                st.subheader("URL Diversity")
+                st.write(f"**Unique URLs:** {stats['url_diversity']['unique_urls']}")
+                st.write(f"**Gini Coefficient:** {stats['url_diversity']['gini_coefficient']:.2f}")
+                st.write("**Top 5 URLs:**")
+                for url, count in stats['url_diversity']['top_urls'].items():
+                    st.write(f"- {url}: {count:.2f}")
+
+            with tab2:
+                st.header("URL Distribution Analysis")
+
+                # Filter Data by Date
+                start_date = st.date_input("Start Date (optional)", value=None, key="start_date_tab2")
+                end_date = st.date_input("End Date (optional)", value=None, key="end_date_tab2")
+
+                # Sort Options
+                sort_by = st.selectbox("Sort by:", ['total_crawls', 'latest_crawl', 'months_active'], key="sort_by_tab2")
+                ascending = st.radio("Sort Order:", ['ascending', 'descending'], index=1, key="ascending_tab2")
+                if ascending == 'ascending':
+                    ascending = True
+                else:
+                    ascending = False
+
+                # Get and visualize URL patterns
+                url_patterns = data_processor.get_url_patterns(df, start_date, end_date, sort_by, ascending)
+                visualizer = Visualizer()
+                visualizer.visualize_url_distribution(url_patterns)
+
+            with tab3:
+                st.header("Time Period Comparison")
+                
+                # Input for time periods
+                start_date1 = st.date_input("Start Date for Period 1", value=df['date'].min().date())
+                end_date1 = st.date_input("End Date for Period 1", value=df['date'].max().date())
+                start_date2 = st.date_input("Start Date for Period 2", value=df['date'].min().date())
+                end_date2 = st.date_input("End Date for Period 2", value=df['date'].max().date())
+                
+                # Compare time periods
+                metrics, period1, period2 = data_processor.compare_time_periods(df, start_date1, end_date1, start_date2, end_date2)
+                
+                # Display comparison results
+                st.subheader("Comparison Metrics")
+                st.write(f"**Period 1:** {start_date1.strftime('%Y-%m-%d')} to {end_date1.strftime('%Y-%m-%d')}")
+                st.write(f"**Period 2:** {start_date2.strftime('%Y-%m-%d')} to {end_date2.strftime('%Y-%m-%d')}")
+                
+                for metric in metrics.keys():
+                    st.write(f"**{metric.upper()}**")
+                    for key, value in metrics[metric].items():
+                        if isinstance(value, dict):
+                            st.write(f"   - {key}:")
+                            for k, v in value.items():
+                                st.write(f"       - {k}: {v}")
+                        else:
+                            st.write(f"   - {key}: {value}")
+
+                # Option to export data
+                export_type = st.selectbox("Export Data as:", ['csv', 'excel', 'gz'])
+                if st.button("Export Data"):
+                    if export_type == 'gz':
+                        data = data_processor.export_data(df, export_type)
+                        st.download_button("Download Data (gzip)", data, file_name="crawl_data.gz", mime="application/gzip")
+                    else:
+                        data = data_processor.export_data(df, export_type)
+                        st.download_button("Download Data", data, file_name=f"crawl_data.{export_type}", mime=f"application/{export_type}")
+
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
+
+if __name__ == "__main__":
+    main()

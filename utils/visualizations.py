@@ -160,31 +160,31 @@ class Visualizer:
         return fig
 
     @st.cache_data
-    def plot_url_distribution(_self, url_counts):
-        # Create DataFrame with explicit index
-        df = pd.DataFrame({
-            'URL': list(url_counts.keys()),
-            'Count': [float(v) for v in url_counts.values()]
-        })
-        df = df.sort_values('Count', ascending=True).tail(10)
+    def plot_url_distribution(_self, url_data, metric='total_crawls', top_n=10):
+        """Enhanced URL distribution visualization with multiple metric options."""
+        df = url_data.nlargest(top_n, metric)
         
         fig = go.Figure()
         fig.add_trace(
             go.Bar(
-                x=df['Count'],
-                y=df['URL'],
+                x=df[metric],
+                y=df['url'],
                 orientation='h',
-                name='URL Distribution',
-                uid='url_dist_bars'
+                name=metric.replace('_', ' ').title(),
+                text=df[metric].round(2),
+                textposition='auto',
+                uid=f'url_dist_bars_{metric}'
             )
         )
         
         fig.update_layout(
-            title='Top 10 Most Crawled URLs',
+            title=f'Top {top_n} URLs by {metric.replace("_", " ").title()}',
             yaxis={'categoryorder': 'total ascending'},
             plot_bgcolor='white',
-            height=400,
-            uirevision='url_distribution'
+            height=max(400, 50 * top_n),  # Dynamic height based on number of URLs
+            xaxis_title=metric.replace('_', ' ').title(),
+            yaxis_title='URL',
+            uirevision=f'url_distribution_{metric}'
         )
         return fig
 
