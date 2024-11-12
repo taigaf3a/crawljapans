@@ -75,22 +75,26 @@ class Visualizer:
 
     @st.cache_data
     def create_heatmap(_self, df):
-        # Convert counts to float64 before pivot
-        counts = df.groupby(['day_of_week', 'hour']).size().astype('float64')
+        # First create the grouped counts with explicit column name
+        grouped = (df.groupby(['day_of_week', 'hour'])
+                  .size()
+                  .reset_index(name='count')
+                  .astype({'count': 'float64'}))
         
-        # Create pivot table with float64 values
-        heatmap_data = counts.reset_index().pivot(
+        # Create pivot table using the named count column
+        heatmap_data = grouped.pivot(
             index='day_of_week',
             columns='hour',
-            values=0
-        ).fillna(0.0)
+            values='count'
+        ).fillna(0.0).astype('float64')
         
         day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         heatmap_data = heatmap_data.reindex(day_order)
         
+        # Create heatmap with explicitly converted float64 values
         fig = go.Figure(data=go.Heatmap(
-            z=heatmap_data.values,
-            x=heatmap_data.columns,
+            z=heatmap_data.values.astype('float64'),
+            x=heatmap_data.columns.astype('float64'),
             y=heatmap_data.index,
             colorscale='Viridis',
             hoverongaps=False

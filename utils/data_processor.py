@@ -103,11 +103,19 @@ class DataProcessor:
 
     @st.cache_data
     def calculate_crawl_frequency(_self, df):
+        """Calculate crawl frequency with proper data type handling and caching."""
         if df is None or df.empty:
             return pd.DataFrame()
         
-        # Ensure consistent data types
-        daily_counts = df.groupby(['date', 'url']).size().astype('float64').reset_index(name='crawl_count')
+        # Group by date and URL, ensuring float64 type for counts
+        daily_counts = (df.groupby(['date', 'url'])
+                       .size()
+                       .reset_index(name='crawl_count')
+                       .astype({'crawl_count': 'float64'}))
+        
+        # Sort by date for consistency in caching
+        daily_counts = daily_counts.sort_values('date')
+        
         return daily_counts
 
     @st.cache_data
