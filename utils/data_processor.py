@@ -141,38 +141,41 @@ class DataProcessor:
     @st.cache_data
     def perform_statistical_analysis(_self, df):
         """Perform advanced statistical analysis on crawl data."""
-        daily_series = df.groupby('date').size()
+        # Convert daily_series to float64 explicitly
+        daily_series = df.groupby('date').size().astype('float64')
         
         basic_stats = {
-            'mean_daily_crawls': daily_series.mean(),
-            'median_daily_crawls': daily_series.median(),
-            'std_daily_crawls': daily_series.std(),
-            'skewness': daily_series.skew(),
-            'kurtosis': daily_series.kurtosis()
+            'mean_daily_crawls': float(daily_series.mean()),
+            'median_daily_crawls': float(daily_series.median()),
+            'std_daily_crawls': float(daily_series.std()),
+            'skewness': float(daily_series.skew()),
+            'kurtosis': float(daily_series.kurtosis())
         }
 
-        trend = pd.Series()
-        seasonal = pd.Series()
-        residual = pd.Series()
+        trend = pd.Series(dtype='float64')
+        seasonal = pd.Series(dtype='float64')
+        residual = pd.Series(dtype='float64')
 
         if len(daily_series) >= 14:  # Minimum length for decomposition
             try:
-                daily_series = daily_series.asfreq('D', fill_value=0)
+                daily_series = daily_series.asfreq('D', fill_value=0.0)  # Use float
                 decomposition = seasonal_decompose(daily_series, period=7)
-                trend = decomposition.trend
-                seasonal = decomposition.seasonal
-                residual = decomposition.resid
+                trend = decomposition.trend.astype('float64')
+                seasonal = decomposition.seasonal.astype('float64')
+                residual = decomposition.resid.astype('float64')
             except Exception:
                 pass
 
-        hourly_stats = df.groupby('hour').size()
+        # Convert hourly stats to float64
+        hourly_stats = df.groupby('hour').size().astype('float64')
         peak_hours = hourly_stats.nlargest(3).index.tolist()
         
-        url_counts = df.groupby('url').size()
+        # Ensure URL counts are float64
+        url_counts = df.groupby('url').size().astype('float64')
         url_diversity = {
-            'unique_urls': len(url_counts),
-            'gini_coefficient': _self._calculate_gini(url_counts.values),
-            'top_urls': url_counts.nlargest(5).to_dict()
+            'unique_urls': float(len(url_counts)),
+            'gini_coefficient': float(_self._calculate_gini(url_counts.values)),
+            'top_urls': {k: float(v) for k, v in url_counts.nlargest(5).to_dict().items()}
         }
 
         return {
