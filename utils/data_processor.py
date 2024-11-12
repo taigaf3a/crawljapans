@@ -140,3 +140,33 @@ class DataProcessor:
             return gzip.compress(csv_str.encode('utf-8'))
         else:
             raise ValueError("Unsupported export format")
+
+    @st.cache_data
+    def compare_time_periods(self, df, start_date1, end_date1, start_date2, end_date2):
+        """Compare crawler data between two time periods."""
+        period1 = df[(df['date'] >= start_date1) & (df['date'] <= end_date1)]
+        period2 = df[(df['date'] >= start_date2) & (df['date'] <= end_date2)]
+        
+        # Calculate metrics for both periods
+        metrics = {
+            'period1': {
+                'total_crawls': len(period1),
+                'unique_urls': len(period1['url'].unique()),
+                'avg_daily_crawls': period1.groupby('date').size().mean(),
+                'peak_hours': period1.groupby('hour').size().nlargest(3).index.tolist(),
+                'top_urls': period1['url'].value_counts().nlargest(5).to_dict(),
+                'hourly_distribution': period1.groupby('hour').size().to_dict(),
+                'daily_pattern': period1.groupby('day_of_week').size().to_dict()
+            },
+            'period2': {
+                'total_crawls': len(period2),
+                'unique_urls': len(period2['url'].unique()),
+                'avg_daily_crawls': period2.groupby('date').size().mean(),
+                'peak_hours': period2.groupby('hour').size().nlargest(3).index.tolist(),
+                'top_urls': period2['url'].value_counts().nlargest(5).to_dict(),
+                'hourly_distribution': period2.groupby('hour').size().to_dict(),
+                'daily_pattern': period2.groupby('day_of_week').size().to_dict()
+            }
+        }
+        
+        return metrics, period1, period2

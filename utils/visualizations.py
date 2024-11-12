@@ -128,3 +128,61 @@ class Visualizer:
             height=400
         )
         return fig
+
+    @st.cache_data
+    def plot_period_comparison(self, period1_data, period2_data, metric, title):
+        """Create comparative bar chart for two time periods."""
+        fig = go.Figure()
+        
+        fig.add_trace(go.Bar(
+            name='Period 1',
+            x=['Period 1'],
+            y=[period1_data],
+            marker_color='rgb(55, 83, 109)'
+        ))
+        
+        fig.add_trace(go.Bar(
+            name='Period 2',
+            x=['Period 2'],
+            y=[period2_data],
+            marker_color='rgb(26, 118, 255)'
+        ))
+
+        fig.update_layout(
+            title=title,
+            showlegend=True,
+            plot_bgcolor='white',
+            barmode='group'
+        )
+        return fig
+
+    @st.cache_data
+    def plot_hourly_comparison(self, period1_dist, period2_dist):
+        """Create comparative line chart for hourly distributions."""
+        hours = list(range(24))
+        
+        fig = go.Figure()
+        
+        # Add traces for both periods
+        fig.add_trace(go.Scatter(
+            x=hours,
+            y=[period1_dist.get(hour, 0) for hour in hours],
+            name='Period 1',
+            line=dict(color='rgb(55, 83, 109)')
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=hours,
+            y=[period2_dist.get(hour, 0) for hour in hours],
+            name='Period 2',
+            line=dict(color='rgb(26, 118, 255)')
+        ))
+
+        fig.update_layout(
+            title='Hourly Distribution Comparison',
+            xaxis_title='Hour of Day',
+            yaxis_title='Number of Crawls',
+            showlegend=True,
+            plot_bgcolor='white'
+        )
+        return fig

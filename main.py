@@ -4,6 +4,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder
 from utils.data_processor import DataProcessor
 from utils.visualizations import Visualizer
 import io
+from datetime import timedelta, datetime
 
 # Page config
 st.set_page_config(
@@ -122,7 +123,13 @@ def main():
                 st.metric("Date Range", f"{combined_df['date'].min().date()} to {combined_df['date'].max().date()}")
 
             # Create tabs for different views
-            tab1, tab2, tab3, tab4 = st.tabs(["📈 Crawl Analysis", "📊 Statistical Insights", "🗺️ Heat Maps", "📑 Detailed Data"])
+            tab1, tab2, tab3, tab4, tab5 = st.tabs([
+                "📈 Crawl Analysis", 
+                "📊 Statistical Insights", 
+                "🗺️ Heat Maps", 
+                "🔄 Period Comparison", 
+                "📑 Detailed Data"
+            ])
             
             visualizer = Visualizer()
             
@@ -178,6 +185,122 @@ def main():
                 st.plotly_chart(heatmap, use_container_width=True)
 
             with tab4:
+                st.subheader("Compare Time Periods")
+                
+                # Date range selection for both periods
+                col1, col2 = st.columns(2)
+                
+                min_date = combined_df['date'].min().date()
+                max_date = combined_df['date'].max().date()
+                default_end_date1 = min(max_date, min_date + timedelta(days=30))
+                
+                with col1:
+                    st.write("#### Period 1")
+                    start_date1 = st.date_input(
+                        "Start Date (Period 1)",
+                        value=min_date,
+                        min_value=min_date,
+                        max_value=max_date
+                    )
+                    
+                    end_date1 = st.date_input(
+                        "End Date (Period 1)",
+                        value=default_end_date1,
+                        min_value=start_date1,
+                        max_value=max_date
+                    )
+
+                default_start_date2 = min(max_date, end_date1 + timedelta(days=1))
+                default_end_date2 = min(max_date, default_start_date2 + timedelta(days=30))
+                
+                with col2:
+                    st.write("#### Period 2")
+                    start_date2 = st.date_input(
+                        "Start Date (Period 2)",
+                        value=default_start_date2,
+                        min_value=min_date,
+                        max_value=max_date
+                    )
+                    
+                    end_date2 = st.date_input(
+                        "End Date (Period 2)",
+                        value=default_end_date2,
+                        min_value=start_date2,
+                        max_value=max_date
+                    )
+
+                if st.button("Compare Periods"):
+                    # Convert dates to pandas Timestamps
+                    start_ts1 = pd.Timestamp(datetime.combine(start_date1, datetime.min.time()))
+                    end_ts1 = pd.Timestamp(datetime.combine(end_date1, datetime.max.time()))
+                    start_ts2 = pd.Timestamp(datetime.combine(start_date2, datetime.min.time()))
+                    end_ts2 = pd.Timestamp(datetime.combine(end_date2, datetime.max.time()))
+                    
+                    metrics, period1_df, period2_df = data_processor.compare_time_periods(
+                        combined_df,
+                        start_ts1,
+                        end_ts1,
+                        start_ts2,
+                        end_ts2
+                    )
+                    
+                    # Display comparison metrics
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write("#### Period 1 Metrics")
+                        st.metric("Total Crawls", metrics['period1']['total_crawls'])
+                        st.metric("Unique URLs", metrics['period1']['unique_urls'])
+                        st.metric("Avg Daily Crawls", f"{metrics['period1']['avg_daily_crawls']:.2f}")
+                        st.write(f"Peak Hours: {', '.join(map(str, metrics['period1']['peak_hours']))}")
+                    
+                    with col2:
+                        st.write("#### Period 2 Metrics")
+                        st.metric("Total Crawls", metrics['period2']['total_crawls'])
+                        st.metric("Unique URLs", metrics['period2']['unique_urls'])
+                        st.metric("Avg Daily Crawls", f"{metrics['period2']['avg_daily_crawls']:.2f}")
+                        st.write(f"Peak Hours: {', '.join(map(str, metrics['period2']['peak_hours']))}")
+                    
+                    # Visualize comparisons
+                    st.write("### Comparative Analysis")
+                    
+                    # Total crawls comparison
+                    total_crawls_fig = visualizer.plot_period_comparison(
+                        metrics['period1']['total_crawls'],
+                        metrics['period2']['total_crawls'],
+                        'total_crawls',
+                        'Total Crawls Comparison'
+                    )
+                    st.plotly_chart(total_crawls_fig, use_container_width=True)
+                    
+                    # Hourly distribution comparison
+                    hourly_comp_fig = visualizer.plot_hourly_comparison(
+                        metrics['period1']['hourly_distribution'],
+                        metrics['period2']['hourly_distribution']
+                    )
+                    st.plotly_chart(hourly_comp_fig, use_container_width=True)
+                    
+                    # Display daily patterns
+                    st.write("### Daily Patterns")
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write("#### Period 1")
+                        daily_pattern1 = pd.DataFrame(
+                            metrics['period1']['daily_pattern'].items(),
+                            columns=['Day', 'Crawls']
+                        ).set_index('Day')
+                        st.dataframe(daily_pattern1)
+                    
+                    with col2:
+                        st.write("#### Period 2")
+                        daily_pattern2 = pd.DataFrame(
+                            metrics['period2']['daily_pattern'].items(),
+                            columns=['Day', 'Crawls']
+                        ).set_index('Day')
+                        st.dataframe(daily_pattern2)
+
+            with tab5:
                 st.subheader("Detailed Crawl Data")
                 # Configure AG-Grid
                 gb = GridOptionsBuilder.from_dataframe(combined_df)
