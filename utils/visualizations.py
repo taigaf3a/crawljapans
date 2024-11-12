@@ -37,8 +37,7 @@ class Visualizer:
 
     @st.cache_data
     def plot_daily_crawls(_self, df):
-        """Create daily crawl frequency plot."""
-        daily_crawls = df.groupby('date')['url'].count().reset_index()
+        daily_crawls = df.groupby('date')['url'].count().astype('float64').reset_index()
         fig = px.line(
             daily_crawls,
             x='date',

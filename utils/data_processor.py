@@ -103,15 +103,11 @@ class DataProcessor:
 
     @st.cache_data
     def calculate_crawl_frequency(_self, df):
-        """Calculate crawl frequency metrics with proper caching support."""
         if df is None or df.empty:
             return pd.DataFrame()
-            
-        # Create a cache key based on the dataframe's content hash
-        df_hash = pd.util.hash_pandas_object(df).sum()
         
-        # Calculate daily counts with proper grouping
-        daily_counts = df.groupby(['date', 'url']).size().reset_index(name='crawl_count')
+        # Ensure consistent data types
+        daily_counts = df.groupby(['date', 'url']).size().astype('float64').reset_index(name='crawl_count')
         return daily_counts
 
     @st.cache_data
