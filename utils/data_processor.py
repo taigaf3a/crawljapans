@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import streamlit as st
+import io
 
 class DataProcessor:
     @st.cache_data
@@ -52,3 +53,16 @@ class DataProcessor:
         }).reset_index()
         url_patterns.columns = ['url', 'total_crawls', 'months_active']
         return url_patterns
+
+    def export_data(self, df, export_type='csv'):
+        """Export data to different formats."""
+        if export_type == 'csv':
+            output = io.BytesIO()
+            df.to_csv(output, index=False)
+            return output.getvalue()
+        elif export_type == 'excel':
+            output = io.BytesIO()
+            df.to_excel(output, index=False)
+            return output.getvalue()
+        else:
+            raise ValueError("Unsupported export format")
