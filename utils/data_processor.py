@@ -9,7 +9,7 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 
 class DataProcessor:
     @st.cache_data
-    def load_data(self, file):
+    def load_data(_self, file):
         """Load and process crawler data from CSV or GZ file."""
         try:
             if file.name.endswith('.gz'):
