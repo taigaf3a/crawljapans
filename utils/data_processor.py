@@ -3,6 +3,7 @@ import numpy as np
 from datetime import datetime
 import streamlit as st
 import io
+import gzip
 
 class DataProcessor:
     @st.cache_data
@@ -64,5 +65,11 @@ class DataProcessor:
             output = io.BytesIO()
             df.to_excel(output, index=False)
             return output.getvalue()
+        elif export_type == 'gz':
+            # Export as CSV and compress with gzip
+            csv_buffer = io.StringIO()
+            df.to_csv(csv_buffer, index=False)
+            csv_str = csv_buffer.getvalue()
+            return gzip.compress(csv_str.encode('utf-8'))
         else:
             raise ValueError("Unsupported export format")

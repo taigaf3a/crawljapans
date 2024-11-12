@@ -36,7 +36,7 @@ def main():
             st.sidebar.header("📥 Export Data")
             export_format = st.sidebar.selectbox(
                 "Choose export format",
-                ["CSV", "Excel"]
+                ["CSV", "Excel", "GZ (Compressed)"]
             )
             
             # Export buttons for different data views
@@ -62,13 +62,21 @@ def main():
                         file_name=f'crawler_data_{export_dataset.lower().replace(" ", "_")}.csv',
                         mime='text/csv'
                     )
-                else:
+                elif export_format == "Excel":
                     data = data_processor.export_data(export_data, 'excel')
                     st.sidebar.download_button(
                         label="Download Excel",
                         data=data,
                         file_name=f'crawler_data_{export_dataset.lower().replace(" ", "_")}.xlsx',
                         mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                    )
+                else:  # GZ (Compressed)
+                    data = data_processor.export_data(export_data, 'gz')
+                    st.sidebar.download_button(
+                        label="Download GZ",
+                        data=data,
+                        file_name=f'crawler_data_{export_dataset.lower().replace(" ", "_")}.csv.gz',
+                        mime='application/gzip'
                     )
             
             # Display basic statistics
