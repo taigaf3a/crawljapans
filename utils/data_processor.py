@@ -102,8 +102,15 @@ class DataProcessor:
             raise ValueError(f"Error processing file {file.name}: {str(e)}")
 
     @st.cache_data
-    def calculate_crawl_frequency(self, df):
-        """Calculate crawl frequency metrics."""
+    def calculate_crawl_frequency(_self, df):
+        """Calculate crawl frequency metrics with proper caching support."""
+        if df is None or df.empty:
+            return pd.DataFrame()
+            
+        # Create a cache key based on the dataframe's content hash
+        df_hash = pd.util.hash_pandas_object(df).sum()
+        
+        # Calculate daily counts with proper grouping
         daily_counts = df.groupby(['date', 'url']).size().reset_index(name='crawl_count')
         return daily_counts
 
@@ -160,7 +167,7 @@ class DataProcessor:
         url_counts = df.groupby('url').size()
         url_diversity = {
             'unique_urls': len(url_counts),
-            'gini_coefficient': self._calculate_gini(url_counts.values),
+            'gini_coefficient': _self._calculate_gini(url_counts.values),
             'top_urls': url_counts.nlargest(5).to_dict()
         }
 
