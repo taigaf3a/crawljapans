@@ -23,7 +23,7 @@ def main():
     """)
 
     # File upload section
-    uploaded_file = st.file_uploader("Upload Crawler Data (CSV)", type=['csv'])
+    uploaded_file = st.file_uploader("Upload Crawler Data (CSV or GZ)", type=['csv', 'gz'])
     
     if uploaded_file:
         try:

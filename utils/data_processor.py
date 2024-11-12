@@ -8,26 +8,30 @@ import gzip
 class DataProcessor:
     @st.cache_data
     def load_data(self, file):
-        """Load and process crawler data from CSV file."""
-        if isinstance(file, (str, bytes, io.IOBase)):
-            df = pd.read_csv(file)
-        else:
-            raise ValueError("Invalid file format")
-
-        # Ensure required columns exist
-        required_columns = ['url', 'date', 'time']
-        if not all(col in df.columns for col in required_columns):
-            raise ValueError("CSV must contain 'url', 'date', and 'time' columns")
-
-        # Convert date column to datetime
-        df['date'] = pd.to_datetime(df['date'])
-        
-        # Create additional features
-        df['month'] = df['date'].dt.strftime('%Y-%m')
-        df['day_of_week'] = df['date'].dt.day_name()
-        df['hour'] = pd.to_datetime(df['time']).dt.hour
-        
-        return df
+        """Load and process crawler data from CSV or GZ file."""
+        try:
+            if file.name.endswith('.gz'):
+                # Read gzipped file
+                content = gzip.decompress(file.read())
+                df = pd.read_csv(io.BytesIO(content))
+            else:
+                # Read CSV file
+                df = pd.read_csv(file)
+            
+            # Ensure required columns exist
+            required_columns = ['url', 'date', 'time']
+            if not all(col in df.columns for col in required_columns):
+                raise ValueError("File must contain 'url', 'date', and 'time' columns")
+            
+            # Convert date column to datetime
+            df['date'] = pd.to_datetime(df['date'])
+            df['month'] = df['date'].dt.strftime('%Y-%m')
+            df['day_of_week'] = df['date'].dt.day_name()
+            df['hour'] = pd.to_datetime(df['time']).dt.hour
+            
+            return df
+        except Exception as e:
+            raise ValueError(f"Error processing file: {str(e)}")
 
     @st.cache_data
     def calculate_crawl_frequency(self, df):
