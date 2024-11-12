@@ -55,7 +55,7 @@ class Visualizer:
     @st.cache_data
     def plot_monthly_crawls(_self, df):
         """Create monthly crawl distribution plot."""
-        monthly_crawls = df.groupby('month')['url'].count().reset_index()
+        monthly_crawls = df.groupby('month')['url'].count().astype('float64').reset_index()
         fig = px.bar(
             monthly_crawls,
             x='month',
@@ -71,18 +71,17 @@ class Visualizer:
 
     @st.cache_data
     def create_heatmap(_self, df):
-        """Create crawl frequency heatmap."""
         heatmap_data = df.pivot_table(
             index='day_of_week',
             columns='hour',
             values='url',
             aggfunc='count',
-            fill_value=0
-        )
+            fill_value=0.0  # Use float
+        ).astype('float64')  # Ensure float64 type
         
         day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         heatmap_data = heatmap_data.reindex(day_order)
-
+        
         fig = go.Figure(data=go.Heatmap(
             z=heatmap_data.values,
             x=heatmap_data.columns,
@@ -90,7 +89,7 @@ class Visualizer:
             colorscale='Viridis',
             hoverongaps=False
         ))
-
+        
         fig.update_layout(
             title='Crawl Frequency Heat Map (Hour vs Day)',
             xaxis_title='Hour of Day',
@@ -107,21 +106,21 @@ class Visualizer:
         if not trend.empty:
             fig.add_trace(go.Scatter(
                 x=trend.index,
-                y=trend.values,
+                y=trend.values.astype('float64'),
                 name='Trend',
                 line=dict(color='blue')
             ))
             
             fig.add_trace(go.Scatter(
                 x=seasonal.index,
-                y=seasonal.values,
+                y=seasonal.values.astype('float64'),
                 name='Seasonal',
                 line=dict(color='green')
             ))
             
             fig.add_trace(go.Scatter(
                 x=residual.index,
-                y=residual.values,
+                y=residual.values.astype('float64'),
                 name='Residual',
                 line=dict(color='red')
             ))
@@ -140,6 +139,7 @@ class Visualizer:
     def plot_url_distribution(_self, url_counts):
         """Plot URL crawl frequency distribution."""
         df = pd.DataFrame(list(url_counts.items()), columns=['URL', 'Count'])
+        df['Count'] = df['Count'].astype('float64')  # Ensure float64 type
         df = df.sort_values('Count', ascending=True).tail(10)
         
         fig = px.bar(
@@ -165,14 +165,14 @@ class Visualizer:
         fig.add_trace(go.Bar(
             name='Period 1',
             x=['Period 1'],
-            y=[period1_data],
+            y=[float(period1_data)],  # Convert to float64
             marker_color='rgb(55, 83, 109)'
         ))
         
         fig.add_trace(go.Bar(
             name='Period 2',
             x=['Period 2'],
-            y=[period2_data],
+            y=[float(period2_data)],  # Convert to float64
             marker_color='rgb(26, 118, 255)'
         ))
 
@@ -186,25 +186,28 @@ class Visualizer:
 
     @st.cache_data
     def plot_hourly_comparison(_self, period1_dist, period2_dist):
-        """Create comparative line chart for hourly distributions."""
         hours = list(range(24))
+        
+        # Convert to float64
+        p1_values = [float(period1_dist.get(hour, 0)) for hour in hours]
+        p2_values = [float(period2_dist.get(hour, 0)) for hour in hours]
         
         fig = go.Figure()
         
         fig.add_trace(go.Scatter(
             x=hours,
-            y=[period1_dist.get(hour, 0) for hour in hours],
+            y=p1_values,
             name='Period 1',
             line=dict(color='rgb(55, 83, 109)')
         ))
         
         fig.add_trace(go.Scatter(
             x=hours,
-            y=[period2_dist.get(hour, 0) for hour in hours],
+            y=p2_values,
             name='Period 2',
             line=dict(color='rgb(26, 118, 255)')
         ))
-
+        
         fig.update_layout(
             title='Hourly Distribution Comparison',
             xaxis_title='Hour of Day',
