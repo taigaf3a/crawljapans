@@ -1,0 +1,6 @@
+url,date,time
+https://example.com,2023-01-01,10:30:00
+https://example.com/page1,2023-01-01,11:45:00
+https://example.com/page2,2023-01-01,14:20:00
+https://example.com,2023-01-02,09:15:00
+https://example.com/page1,2023-01-02,16:30:00
