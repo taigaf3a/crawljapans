@@ -115,7 +115,7 @@ class DataProcessor:
         return daily_counts
 
     @st.cache_data
-    def calculate_monthly_stats(self, df):
+    def calculate_monthly_stats(_self, df):
         """Calculate monthly crawl statistics."""
         monthly_stats = df.groupby('month').agg({
             'url': 'count',
@@ -125,7 +125,7 @@ class DataProcessor:
         return monthly_stats
 
     @st.cache_data
-    def get_url_patterns(self, df):
+    def get_url_patterns(_self, df):
         """Analyze URL patterns and frequency."""
         url_patterns = df.groupby('url').agg({
             'date': 'count',
@@ -135,7 +135,7 @@ class DataProcessor:
         return url_patterns
 
     @st.cache_data
-    def perform_statistical_analysis(self, df):
+    def perform_statistical_analysis(_self, df):
         """Perform advanced statistical analysis on crawl data."""
         daily_series = df.groupby('date').size()
         
@@ -181,7 +181,7 @@ class DataProcessor:
         }
 
     @st.cache_data
-    def _calculate_gini(self, array):
+    def _calculate_gini(_self, array):
         """Calculate the Gini coefficient of inequality."""
         array = np.array(array)
         if np.amin(array) < 0:
@@ -193,7 +193,7 @@ class DataProcessor:
         return ((np.sum((2 * index - n - 1) * array)) / (n * np.sum(array)))
 
     @st.cache_data
-    def export_data(self, df, export_type='csv'):
+    def export_data(_self, df, export_type='csv'):
         """Export data to different formats."""
         if export_type == 'csv':
             output = io.BytesIO()
@@ -212,7 +212,7 @@ class DataProcessor:
             raise ValueError("Unsupported export format")
 
     @st.cache_data
-    def compare_time_periods(self, df, start_date1, end_date1, start_date2, end_date2):
+    def compare_time_periods(_self, df, start_date1, end_date1, start_date2, end_date2):
         """Compare Googlebot crawl data between two time periods."""
         period1 = df[(df['date'] >= start_date1) & (df['date'] <= end_date1)]
         period2 = df[(df['date'] >= start_date2) & (df['date'] <= end_date2)]
