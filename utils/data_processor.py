@@ -4,6 +4,8 @@ from datetime import datetime
 import streamlit as st
 import io
 import gzip
+from scipy import stats
+from statsmodels.tsa.seasonal import seasonal_decompose
 
 class DataProcessor:
     @st.cache_data
@@ -58,6 +60,62 @@ class DataProcessor:
         }).reset_index()
         url_patterns.columns = ['url', 'total_crawls', 'months_active']
         return url_patterns
+
+    @st.cache_data
+    def perform_statistical_analysis(self, df):
+        """Perform advanced statistical analysis on crawl data."""
+        # Daily crawl count series
+        daily_series = df.groupby('date').size()
+        
+        # Basic statistics
+        basic_stats = {
+            'mean_daily_crawls': daily_series.mean(),
+            'median_daily_crawls': daily_series.median(),
+            'std_daily_crawls': daily_series.std(),
+            'skewness': daily_series.skew(),
+            'kurtosis': daily_series.kurtosis()
+        }
+
+        # Time series decomposition
+        if len(daily_series) >= 14:  # Minimum length for decomposition
+            decomposition = seasonal_decompose(daily_series, period=7, extrapolate_trend='freq')
+            trend = decomposition.trend
+            seasonal = decomposition.seasonal
+            residual = decomposition.resid
+        else:
+            trend = seasonal = residual = pd.Series()
+
+        # Hourly distribution analysis
+        hourly_stats = df.groupby('hour').size()
+        peak_hours = hourly_stats.nlargest(3).index.tolist()
+        
+        # URL diversity analysis
+        url_counts = df.groupby('url').size()
+        url_diversity = {
+            'unique_urls': len(url_counts),
+            'gini_coefficient': self._calculate_gini(url_counts.values),
+            'top_urls': url_counts.nlargest(5).to_dict()
+        }
+
+        return {
+            'basic_stats': basic_stats,
+            'trend': trend,
+            'seasonal': seasonal,
+            'residual': residual,
+            'peak_hours': peak_hours,
+            'url_diversity': url_diversity
+        }
+
+    def _calculate_gini(self, array):
+        """Calculate the Gini coefficient of inequality."""
+        array = np.array(array)
+        if np.amin(array) < 0:
+            array -= np.amin(array)
+        array += 0.0000001
+        array = np.sort(array)
+        index = np.arange(1, array.shape[0] + 1)
+        n = array.shape[0]
+        return ((np.sum((2 * index - n - 1) * array)) / (n * np.sum(array)))
 
     def export_data(self, df, export_type='csv'):
         """Export data to different formats."""

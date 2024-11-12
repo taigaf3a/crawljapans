@@ -88,10 +88,10 @@ def main():
             with col2:
                 st.metric("Total Crawls", len(df))
             with col3:
-                st.metric("Date Range", f"{df['date'].min()} to {df['date'].max()}")
+                st.metric("Date Range", f"{df['date'].min().date()} to {df['date'].max().date()}")
 
             # Create tabs for different views
-            tab1, tab2, tab3 = st.tabs(["📈 Crawl Analysis", "🗺️ Heat Maps", "📑 Detailed Data"])
+            tab1, tab2, tab3, tab4 = st.tabs(["📈 Crawl Analysis", "📊 Statistical Insights", "🗺️ Heat Maps", "📑 Detailed Data"])
             
             visualizer = Visualizer()
             
@@ -105,11 +105,48 @@ def main():
                 st.plotly_chart(monthly_crawls, use_container_width=True)
 
             with tab2:
+                st.subheader("Advanced Statistical Analysis")
+                stats_results = data_processor.perform_statistical_analysis(df)
+                
+                # Basic Statistics
+                st.write("### Daily Crawl Statistics")
+                basic_stats = stats_results['basic_stats']
+                cols = st.columns(5)
+                cols[0].metric("Mean Daily Crawls", f"{basic_stats['mean_daily_crawls']:.2f}")
+                cols[1].metric("Median Daily Crawls", f"{basic_stats['median_daily_crawls']:.2f}")
+                cols[2].metric("Std Dev", f"{basic_stats['std_daily_crawls']:.2f}")
+                cols[3].metric("Skewness", f"{basic_stats['skewness']:.2f}")
+                cols[4].metric("Kurtosis", f"{basic_stats['kurtosis']:.2f}")
+                
+                # Time Series Decomposition
+                st.write("### Time Series Decomposition")
+                decomp_plot = visualizer.plot_time_series_decomposition(
+                    stats_results['trend'],
+                    stats_results['seasonal'],
+                    stats_results['residual']
+                )
+                st.plotly_chart(decomp_plot, use_container_width=True)
+                
+                # URL Distribution
+                st.write("### URL Distribution Analysis")
+                url_div = stats_results['url_diversity']
+                cols = st.columns(2)
+                cols[0].metric("Unique URLs", url_div['unique_urls'])
+                cols[1].metric("Gini Coefficient", f"{url_div['gini_coefficient']:.3f}")
+                
+                url_dist_plot = visualizer.plot_url_distribution(url_div['top_urls'])
+                st.plotly_chart(url_dist_plot, use_container_width=True)
+                
+                # Peak Hours
+                st.write("### Peak Crawling Hours")
+                st.write(f"Top 3 peak hours: {', '.join(map(str, stats_results['peak_hours']))}")
+
+            with tab3:
                 st.subheader("Crawl Frequency Heat Map")
                 heatmap = visualizer.create_heatmap(df)
                 st.plotly_chart(heatmap, use_container_width=True)
 
-            with tab3:
+            with tab4:
                 st.subheader("Detailed Crawl Data")
                 # Configure AG-Grid
                 gb = GridOptionsBuilder.from_dataframe(df)

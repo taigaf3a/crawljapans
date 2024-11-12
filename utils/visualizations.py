@@ -2,6 +2,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import streamlit as st
+import numpy as np
 
 class Visualizer:
     @st.cache_data
@@ -66,6 +67,64 @@ class Visualizer:
             title='Crawl Frequency Heat Map (Hour vs Day)',
             xaxis_title='Hour of Day',
             yaxis_title='Day of Week',
+            height=400
+        )
+        return fig
+
+    @st.cache_data
+    def plot_time_series_decomposition(self, trend, seasonal, residual):
+        """Plot time series decomposition components."""
+        fig = go.Figure()
+        
+        if not trend.empty:
+            fig.add_trace(go.Scatter(
+                x=trend.index,
+                y=trend.values,
+                name='Trend',
+                line=dict(color='blue')
+            ))
+            
+            fig.add_trace(go.Scatter(
+                x=seasonal.index,
+                y=seasonal.values,
+                name='Seasonal',
+                line=dict(color='green')
+            ))
+            
+            fig.add_trace(go.Scatter(
+                x=residual.index,
+                y=residual.values,
+                name='Residual',
+                line=dict(color='red')
+            ))
+            
+            fig.update_layout(
+                title='Time Series Decomposition',
+                xaxis_title='Date',
+                yaxis_title='Component Value',
+                height=600,
+                showlegend=True,
+                plot_bgcolor='white'
+            )
+        return fig
+
+    @st.cache_data
+    def plot_url_distribution(self, url_counts):
+        """Plot URL crawl frequency distribution."""
+        df = pd.DataFrame(list(url_counts.items()), columns=['URL', 'Count'])
+        df = df.sort_values('Count', ascending=True).tail(10)
+        
+        fig = px.bar(
+            df,
+            x='Count',
+            y='URL',
+            orientation='h',
+            title='Top 10 Most Crawled URLs'
+        )
+        
+        fig.update_layout(
+            yaxis={'categoryorder': 'total ascending'},
+            plot_bgcolor='white',
             height=400
         )
         return fig
