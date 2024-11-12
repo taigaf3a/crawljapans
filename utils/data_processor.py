@@ -4,20 +4,61 @@ from datetime import datetime
 import streamlit as st
 import io
 import gzip
+import re
 from scipy import stats
 from statsmodels.tsa.seasonal import seasonal_decompose
 
 class DataProcessor:
+    def parse_log_line(self, line):
+        """Parse a single line from the common log format."""
+        try:
+            # Common Log Format pattern
+            pattern = r'(?P<host>[\d\.]+)\s+\S+\s+\S+\s+\[(?P<datetime>[^\]]+)\]\s+"(?:GET|POST|PUT|DELETE)\s+(?P<url>[^\s"]+)[^"]*"\s+(?P<status>\d+)\s+(?P<bytes>\d+)'
+            match = re.match(pattern, line)
+            
+            if match:
+                data = match.groupdict()
+                # Parse datetime
+                dt = datetime.strptime(data['datetime'], '%d/%b/%Y:%H:%M:%S %z')
+                return {
+                    'url': data['url'],
+                    'date': dt.date(),
+                    'time': dt.strftime('%H:%M:%S')
+                }
+            return None
+        except Exception:
+            return None
+
     @st.cache_data
     def load_data(_self, file):
-        """Load and process crawler data from CSV or GZ file."""
+        """Load and process crawler data from CSV, GZ, or log file."""
         try:
-            if file.name.endswith('.gz'):
-                # Read gzipped file
+            df = None
+            
+            # Handle log files
+            if file.name.startswith('ssl_access.log-'):
+                content = file.read()
+                if file.name.endswith('.gz'):
+                    content = gzip.decompress(content)
+                content = content.decode('utf-8')
+                
+                parsed_data = []
+                for line in content.split('\n'):
+                    if line.strip():
+                        data = _self.parse_log_line(line)
+                        if data:
+                            parsed_data.append(data)
+                
+                if not parsed_data:
+                    raise ValueError(f"No valid log entries found in {file.name}")
+                
+                df = pd.DataFrame(parsed_data)
+                
+            # Handle CSV and GZ files
+            elif file.name.endswith('.gz'):
                 content = gzip.decompress(file.read())
                 df = pd.read_csv(io.BytesIO(content))
             else:
-                # Read CSV file
                 df = pd.read_csv(file)
             
             # Ensure required columns exist
